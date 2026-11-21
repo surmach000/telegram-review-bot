@@ -46,7 +46,7 @@ def wait_for_telegram(telegram, stop_path, sleep=None):
             return telegram.call("getMe", {})
         except BotError as failure:
             retryable = str(failure) in (
-                "HTTP_DNS_FAILED", "HTTP_CONNECTION_FAILED", "HTTP_TIMEOUT", "HTTP_REQUEST_FAILED",
+                "HTTP_DNS_FAILED", "HTTP_CONNECT_FAILED", "HTTP_CONNECTION_FAILED", "HTTP_TIMEOUT", "HTTP_REQUEST_FAILED",
                 "HTTP_STATUS_408", "HTTP_STATUS_429", "HTTP_STATUS_500", "HTTP_STATUS_502",
                 "HTTP_STATUS_503", "HTTP_STATUS_504")
             if not retryable:
@@ -67,7 +67,7 @@ def review_loop(cfg, database, stop):
     try:
         while not stop.is_set():
             # Deliver the preceding report before beginning the next job.
-            blocked = store.db.execute("SELECT 1 FROM outbox WHERE status IN ('pending','sending','unknown') LIMIT 1").fetchone()
+            blocked = store.reports_pending()
             job = None if blocked else store.claim()
             if not job:
                 stop.wait(1)
@@ -171,13 +171,13 @@ def main():
             for row in store.db.execute("SELECT id,kind,status,url FROM jobs ORDER BY id"):
                 print(json.dumps(dict(row), ensure_ascii=False))
         elif args.command == "deliveries":
-            for row in store.db.execute("SELECT id,job_id,status,telegram_id FROM outbox ORDER BY id"):
+            for row in store.db.execute("SELECT id,job_id,status,telegram_id,retry_count,next_attempt,last_error FROM outbox ORDER BY id"):
                 print(json.dumps(dict(row)))
         elif args.command == "retry-delivery":
             if not args.id:
                 raise BotError("DELIVERY_ID_REQUIRED")
             with store.db:
-                cursor = store.db.execute("UPDATE outbox SET status='pending' WHERE id=? AND status='unknown'", (args.id,))
+                cursor = store.db.execute("UPDATE outbox SET status='pending',next_attempt=0,retry_count=0,last_error=NULL WHERE id=? AND status IN ('unknown','failed')", (args.id,))
                 if not cursor.rowcount:
                     raise BotError("UNKNOWN_DELIVERY_NOT_FOUND")
             print("Delivery queued again. This explicit retry may duplicate a previously delivered message.")

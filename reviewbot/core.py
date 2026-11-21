@@ -22,6 +22,12 @@ class GitLabTemporarilyUnavailable(BotError):
     """A safe, retryable Git transport failure; never credentials or stderr."""
 
 
+class RateLimited(BotError):
+    def __init__(self, seconds):
+        super().__init__("HTTP_STATUS_429")
+        self.seconds = max(1, int(seconds))
+
+
 def load_config(path):
     path = Path(path).resolve()
     cfg = json.loads(path.read_text(encoding="utf-8-sig"))
@@ -113,6 +119,11 @@ class Store:
                                      ("retry_reason", "TEXT")):
                 if name not in columns:
                     self.db.execute("ALTER TABLE jobs ADD COLUMN " + name + " " + definition)
+            outbox_columns = {row[1] for row in self.db.execute("PRAGMA table_info(outbox)")}
+            for name, definition in (("retry_count", "INTEGER NOT NULL DEFAULT 0"),
+                                     ("next_attempt", "REAL NOT NULL DEFAULT 0"), ("last_error", "TEXT")):
+                if name not in outbox_columns:
+                    self.db.execute("ALTER TABLE outbox ADD COLUMN " + name + " " + definition)
 
     def recover(self):
         with self.db:
@@ -123,6 +134,19 @@ class Store:
     def next_offset(self):
         row = self.db.execute("SELECT MAX(id) FROM updates").fetchone()
         return (row[0] + 1) if row[0] is not None else 0
+
+    def next_delivery(self, now=None):
+        now = time.time() if now is None else now
+        return self.db.execute("""SELECT o.* FROM outbox o WHERE o.status='pending' AND o.next_attempt<=?
+            AND (o.job_id IS NULL OR NOT EXISTS(SELECT 1 FROM outbox earlier
+                WHERE earlier.job_id=o.job_id AND earlier.id<o.id AND earlier.status!='sent'))
+            ORDER BY o.id LIMIT 1""", (now,)).fetchone()
+
+    def reports_pending(self):
+        return self.db.execute("""SELECT 1 FROM outbox o WHERE o.job_id IS NOT NULL
+            AND o.status IN ('pending','sending') AND NOT EXISTS(SELECT 1 FROM outbox earlier
+                WHERE earlier.job_id=o.job_id AND earlier.id<o.id AND earlier.status IN ('unknown','failed'))
+            LIMIT 1""").fetchone() is not None
 
     def enqueue_text(self, chat_id, source_id, body, job_id=None):
         # UTF-16 safe even with astral characters; prefixes fit comfortably in 4096.
@@ -166,12 +190,13 @@ class Store:
             if command == "/status":
                 rows = self.db.execute("SELECT status,COUNT(*) n FROM jobs GROUP BY status").fetchall()
                 unknown = self.db.execute("SELECT COUNT(*) FROM outbox WHERE status='unknown'").fetchone()[0]
+                failed_deliveries = self.db.execute("SELECT COUNT(*) FROM outbox WHERE status='failed'").fetchone()[0]
                 waiting = self.db.execute("SELECT id,next_attempt,retry_reason FROM jobs WHERE status='waiting_for_gitlab' ORDER BY id LIMIT 1").fetchone()
                 detail = ("; задание #{} ожидает GitLab/VPN; следующая попытка через {} с; причина={}".format(
                     waiting["id"], max(0, int(waiting["next_attempt"] - time.time())), waiting["retry_reason"]) if waiting else "")
                 self.enqueue_text(chat_id, source, "Очередь: " + ", ".join(
                     "{}={}".format(row["status"], row["n"]) for row in rows)
-                    + "; доставка с неизвестным результатом={}".format(unknown) + detail)
+                    + "; доставка с неизвестным результатом={}; отклонённых отправок={}".format(unknown, failed_deliveries) + detail)
                 return
             parent = self.parent_for_reply(chat_id, msg.get("reply_to_message", {}).get("message_id", -1))
             urls = links_in(msg, cfg)

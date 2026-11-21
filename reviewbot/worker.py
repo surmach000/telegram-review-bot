@@ -15,11 +15,12 @@ from xml.etree import ElementTree
 from .core import BotError, GitLabTemporarilyUnavailable, MODEL
 from .test_runner import TestRunner
 from .review_context import snapshot_context, copy_previous_context
+from .permissions import permission_arguments
 
 
 def child_environment():
     # No bot token, GitLab token, arbitrary API keys or project environment in Codex.
-    names = ("PATH", "SYSTEMROOT", "WINDIR", "COMSPEC", "PATHEXT", "TEMP", "TMP",
+    names = ("PATH", "SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "PATHEXT", "TEMP", "TMP",
              "USERPROFILE", "HOME", "APPDATA", "LOCALAPPDATA", "CODEX_HOME", "LANG")
     return {key: value for key, value in os.environ.items() if key.upper() in names}
 
@@ -210,11 +211,10 @@ class Worker:
                    "Copy its exact content as the first line of your final answer, then a newline and your answer. "
                    "If you cannot read files, report that; do not invent a review.")
         args = [self.cfg.get("codex_command", "codex"), "exec", "--ignore-user-config", "--ignore-rules",
-                "--ephemeral", "--skip-git-repo-check", "--sandbox", "read-only", "--color", "never",
+                "--ephemeral", "--skip-git-repo-check", "--strict-config", "--color", "never",
                 "--model", MODEL, "-c", 'model_reasoning_effort="{}"'.format(effort),
                 "-C", str(folder), "--output-last-message", str(output), "-"]
-        if os.name == "nt":
-            args[2:2] = ["-c", 'windows.sandbox="elevated"']
+        args[2:2] = permission_arguments()
         try:
             result = subprocess.run(args, input=prompt.encode("utf-8"), cwd=str(folder),
                                     env=child_environment(), stdout=subprocess.DEVNULL,

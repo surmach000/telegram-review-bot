@@ -205,7 +205,9 @@ class BotTests(unittest.TestCase):
         args = run.call_args[0][0]
         self.assertEqual(args[args.index("--model") + 1], "gpt-6.1-sol")
         self.assertIn('model_reasoning_effort="high"', args)
-        self.assertEqual(args[args.index("--sandbox") + 1], "read-only")
+        self.assertNotIn("--sandbox", args)
+        self.assertIn('default_permissions="review-job"', args)
+        self.assertTrue(any('":root"="deny"' in value for value in args))
         self.assertIn("--ignore-user-config", args)
         with patch("reviewbot.worker.subprocess.run", return_value=subprocess.CompletedProcess([], 1)) as run:
             with self.assertRaisesRegex(BotError, "NO_MODEL_FALLBACK"):
@@ -276,8 +278,8 @@ class BotTests(unittest.TestCase):
 
     def test_unknown_delivery_blocks_later_report_fragments(self):
         with self.store.db:
-            self.store.enqueue_text(17, 10, "first")
-            self.store.enqueue_text(17, 10, "second")
+            self.store.enqueue_text(17, 10, "first", job_id=1)
+            self.store.enqueue_text(17, 10, "second", job_id=1)
             self.store.db.execute("UPDATE outbox SET status='unknown' WHERE id=1")
         telegram = Telegram("not-a-real-token")
         with patch.object(telegram, "call") as send:
