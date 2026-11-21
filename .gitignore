@@ -1,0 +1,7 @@
+config.local.json
+*.clixml
+runtime/
+documentation/
+__pycache__/
+*.pyc
+gitlab-check-result.txt

@@ -1,0 +1,8 @@
+*
+!Dockerfile.tests
+!reviewbot/
+!reviewbot/*.py
+!reviewbot/*.sh
+!reviewbot/*.xml
+!tests/
+!tests/*.py

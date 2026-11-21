@@ -1,0 +1,37 @@
+{
+  "model": "gpt-6.1-sol",
+  "allowed_user_id": 0,
+  "gitlab_host": "gitlab.5-element.tech",
+  "base_branch": "dev",
+  "review_context_required": true,
+  "review_context_sources": [
+    "D:/eldoc-README/docs/telegram-review-context.md",
+    "C:/Users/asurm/.agents/skills/write-detailed-plan/references/test-writing-methodology.md",
+    "C:/Users/asurm/.agents/skills/java-conventions/references/comment-style.md"
+  ],
+  "run_tests": true,
+  "test_artifact_cache": "runtime/maven-artifacts",
+  "test_timeout_seconds": 1800,
+  "projects": [
+    "5element/edo-experimental/gateway",
+    "5element/edo-experimental/server",
+    "5element/edo-experimental/auth-service"
+  ],
+  "data_directory": "runtime",
+  "documentation_directory": "documentation",
+  "documentation_sources": [
+    "C:/Users/asurm/OneDrive/Рабочий стол/ЭДО/Требования/Архитектура/Архитектура_системы_ЭДО_v0.4_20261120.docx",
+    "C:/Users/asurm/OneDrive/Рабочий стол/ЭДО/Требования/Архитектура/Архитектура_файлового_шлюза_ЭДО_v0_6_20261120.docx",
+    "C:/Users/asurm/OneDrive/Рабочий стол/ЭДО/Требования/ЧТЗ ФШ/ЧТЗ ФШ 0.9.5.docx",
+    "C:/Users/asurm/OneDrive/Рабочий стол/ЭДО/Требования/ЧТЗ ЛК v 1.0.docx",
+    "C:/Users/asurm/OneDrive/Рабочий стол/ЭДО/Требования/ТЕХНИЧЕСКОЕ ЗАДАНИЕ _ Чистовой вариант.docx",
+    "C:/Users/asurm/OneDrive/Рабочий стол/ЭДО/Требования/rules.docx",
+    "C:/Users/asurm/OneDrive/Рабочий стол/ЭДО/Требования/yaml.docx",
+    "C:/Users/asurm/OneDrive/Рабочий стол/ЭДО/Требования/secret.docx",
+    "C:/Users/asurm/OneDrive/Рабочий стол/ЭДО/Требования/diag.docx",
+    "C:/Users/asurm/OneDrive/Рабочий стол/ЭДО/Требования/Архитектура/Архитектура_сервера_ЭДО_v0.1_20261120.docx"
+  ],
+  "codex_command": "codex",
+  "codex_timeout_seconds": 1800,
+  "max_pending_jobs": 30
+}
